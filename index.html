@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Advanced Discord Embed Builder</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #1e1e2e;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .builder-section {
+            background: #2a2a3c;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .preview-section {
+            position: sticky;
+            top: 20px;
+            height: fit-content;
+        }
+
+        .input-group {
+            margin: 15px 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #a0a0ff;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            background: #3a3a4c;
+            border: none;
+            border-radius: 5px;
+            color: #ffffff;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            box-shadow: 0 0 5px #5865f2;
+        }
+
+        button {
+            background: #5865f2;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        button:hover {
+            background: #4752c4;
+        }
+
+        .embed-preview {
+            background: #36393f;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #5865f2;
+        }
+
+        .link-input {
+            display: flex;
+            gap: 10px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="builder-section">
+            <h2>Embed Builder</h2>
+            
+            <div class="input-group">
+                <label>Webhook URL</label>
+                <input type="text" id="webhookUrl" placeholder="Enter Discord Webhook URL">
+            </div>
+
+            <div class="input-group">
+                <label>Title</label>
+                <input type="text" id="title" maxlength="256">
+                <div class="link-input">
+                    <input type="url" id="titleUrl" placeholder="Title URL">
+                </div>
+            </div>
+            
+            <div class="input-group">
+                <label>Description (Markdown supported)</label>
+                <textarea id="description" maxlength="4096" rows="4"></textarea>
+            </div>
+
+            <div class="input-group">
+                <label>Color</label>
+                <input type="color" id="color" value="#5865f2">
+            </div>
+
+            <div class="input-group">
+                <label>Author Name</label>
+                <input type="text" id="authorName" maxlength="256">
+                <div class="link-input">
+                    <input type="url" id="authorUrl" placeholder="Author URL">
+                    <input type="url" id="authorIcon" placeholder="Author Icon URL">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Thumbnail URL</label>
+                <input type="url" id="thumbnail">
+            </div>
+
+            <div class="input-group">
+                <label>Image URL</label>
+                <input type="url" id="image">
+            </div>
+
+            <div class="input-group">
+                <label>Video URL</label>
+                <input type="url" id="video">
+            </div>
+
+            <div id="fieldsContainer">
+                <h3>Fields</h3>
+            </div>
+            <button onclick="addField()">Add Field</button>
+
+            <div class="input-group">
+                <label>Footer Text</label>
+                <input type="text" id="footerText" maxlength="2048">
+                <div class="link-input">
+                    <input type="url" id="footerIcon" placeholder="Footer Icon URL">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Timestamp</label>
+                <select id="timestamp">
+                    <option value="none">None</option>
+                    <option value="current">Current Time</option>
+                    <option value="custom">Custom</option>
+                </select>
+                <input type="datetime-local" id="customTimestamp" style="display: none;">
+            </div>
+
+            <!-- New Advanced Features -->
+            <div class="input-group">
+                <label>Username Override</label>
+                <input type="text" id="username" maxlength="80">
+            </div>
+
+            <div class="input-group">
+                <label>Avatar URL Override</label>
+                <input type="url" id="avatarUrl">
+            </div>
+
+            <div class="input-group">
+                <label>Content (Message outside embed)</label>
+                <textarea id="content" maxlength="2000" rows="2"></textarea>
+            </div>
+
+            <div class="input-group">
+                <label>Embed Presets</label>
+                <select id="presets">
+                    <option value="">Custom</option>
+                    <option value="welcome">Welcome Message</option>
+                    <option value="error">Error Message</option>
+                    <option value="success">Success Message</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Mention Options</label>
+                <select id="mentions">
+                    <option value="none">No Mentions</option>
+                    <option value="@everyone">@everyone</option>
+                    <option value="@here">@here</option>
+                </select>
+            </div>
+
+            <button onclick="sendEmbed()">Send Embed</button>
+            <button onclick="savePreset()">Save as Preset</button>
+            <button onclick="exportJson()">Export JSON</button>
+        </div>
+
+        <div class="preview-section">
+            <h2>Preview</h2>
+            <div class="embed-preview" id="preview">
+                <!-- Preview will be generated here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let fieldCount = 0;
+        let savedPresets = {};
+
+        function addField() {
+            fieldCount++;
+            const container = document.getElementById('fieldsContainer');
+            const fieldDiv = document.createElement('div');
+            fieldDiv.className = 'input-group';
+            fieldDiv.innerHTML = `
+                <label>Field ${fieldCount} Name</label>
+                <input type="text" class="field-name" maxlength="256">
+                <label>Field ${fieldCount} Value</label>
+                <textarea class="field-value" maxlength="1024"></textarea>
+                <label>Inline</label>
+                <input type="checkbox" class="field-inline">
+                <button onclick="this.parentElement.remove(); updatePreview()">Remove</button>
+            `;
+            container.appendChild(fieldDiv);
+            updatePreview();
+        }
+
+        function formatMarkdown(text) {
+            return text
+                .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+                .replace(/\*(.+?)\*/g, '<i>$1</i>')
+                .replace(/__(.+?)__/g, '<u>$1</u>')
+                .replace(/~~(.+?)~~/g, '<s>$1</s>')
+                .replace(/`(.+?)`/g, '<code>$1</code>');
+        }
+
+        function updatePreview() {
+            const preview = document.getElementById('preview');
+            let html = '';
+
+            // Username and Avatar
+            const username = document.getElementById('username').value;
+            const avatarUrl = document.getElementById('avatarUrl').value;
+            if (username || avatarUrl) {
+                html += `<div style="display: flex; align-items: center; margin-bottom: 10px;">
+                    ${avatarUrl ? `<img src="${avatarUrl}" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 10px;">` : ''}
+                    <span>${username || 'Webhook'}</span>
+                </div>`;
+            }
+
+            // Content
+            const content = document.getElementById('content').value;
+            if (content) html += `<p>${formatMarkdown(content)}</p>`;
+
+            // Title
+            const title = document.getElementById('title').value;
+            const titleUrl = document.getElementById('titleUrl').value;
+            if (title) {
+                html += titleUrl ? 
+                    `<h3 style="color: #ffffff"><a href="${titleUrl}" style="color: #00aff4">${title}</a></h3>` :
+                    `<h3 style="color: #ffffff">${title}</h3>`;
+            }
+
+            // Description
+            const desc = document.getElementById('description').value;
+            if (desc) html += `<p>${formatMarkdown(desc).replace(/\n/g, '<br>')}</p>`;
+
+            // Image
+            const image = document.getElementById('image').value;
+            if (image) html += `<img src="${image}" style="max-width: 100%; margin: 10px 0;">`;
+
+            // Fields
+            const fields = [];
+            document.querySelectorAll('.input-group').forEach(group => {
+                const name = group.querySelector('.field-name');
+                const value = group.querySelector('.field-value');
+                const inline = group.querySelector('.field-inline');
+                if (name && value && name.value && value.value) {
+                    fields.push({
+                        name: name.value,
+                        value: value.value,
+                        inline: inline.checked
+                    });
+                }
+            });
+
+            if (fields.length) {
+                html += '<div style="margin: 10px 0">';
+                fields.forEach(field => {
+                    html += `
+                        <div style="display: ${field.inline ? 'inline-block' : 'block'}; 
+                                   width: ${field.inline ? '30%' : '100%'}; 
+                                   margin: 5px;">
+                            <strong>${field.name}</strong>
+                            <p>${formatMarkdown(field.value).replace(/\n/g, '<br>')}</p>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+
+            preview.innerHTML = html;
+            preview.style.borderLeftColor = document.getElementById('color').value;
+        }
+
+        async function sendEmbed() {
+            const webhookUrl = document.getElementById('webhookUrl').value;
+            if (!webhookUrl) {
+                alert('Please enter a webhook URL');
+                return;
+            }
+
+            const embed = {
+                title: document.getElementById('title').value,
+                url: document.getElementById('titleUrl').value,
+                description: document.getElementById('description').value,
+                color: parseInt(document.getElementById('color').value.slice(1), 16),
+                author: {
+                    name: document.getElementById('authorName').value,
+                    url: document.getElementById('authorUrl').value,
+                    icon_url: document.getElementById('authorIcon').value
+                },
+                thumbnail: { url: document.getElementById('thumbnail').value },
+                image: { url: document.getElementById('image').value },
+                video: { url: document.getElementById('video').value },
+                footer: {
+                    text: document.getElementById('footerText').value,
+                    icon_url: document.getElementById('footerIcon').value
+                },
+                fields: []
+            };
+
+            document.querySelectorAll('.input-group').forEach(group => {
+                const name = group.querySelector('.field-name');
+                const value = group.querySelector('.field-value');
+                const inline = group.querySelector('.field-inline');
+                if (name && value && name.value && value.value) {
+                    embed.fields.push({
+                        name: name.value,
+                        value: value.value,
+                        inline: inline.checked
+                    });
+                }
+            });
+
+            const timestampSelect = document.getElementById('timestamp').value;
+            if (timestampSelect === 'current') {
+                embed.timestamp = new Date().toISOString();
+            } else if (timestampSelect === 'custom') {
+                embed.timestamp = document.getElementById('customTimestamp').value;
+            }
+
+            const payload = {
+                username: document.getElementById('username').value,
+                avatar_url: document.getElementById('avatarUrl').value,
+                content: document.getElementById('content').value,
+                embeds: [embed]
+            };
+
+            const mention = document.getElementById('mentions').value;
+            if (mention !== 'none') {
+                payload.content = (payload.content ? payload.content + ' ' : '') + mention;
+            }
+
+            try {
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    alert('Embed sent successfully!');
+                } else {
+                    alert('Error sending embed: ' + response.status);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function savePreset() {
+            const name = prompt('Enter preset name:');
+            if (name) {
+                savedPresets[name] = getCurrentEmbedData();
+                alert('Preset saved!');
+            }
+        }
+
+        function exportJson() {
+            const data = getCurrentEmbedData();
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'embed.json';
+            a.click();
+        }
+
+        function getCurrentEmbedData() {
+            return {
+                title: document.getElementById('title').value,
+                url: document.getElementById('titleUrl').value,
+                description: document.getElementById('description').value,
+                color: document.getElementById('color').value,
+                // Add other fields as needed
+            };
+        }
+
+        // Event Listeners
+        document.querySelectorAll('input, textarea, select').forEach(element => {
+            element.addEventListener('input', updatePreview);
+        });
+
+        document.getElementById('timestamp').addEventListener('change', function() {
+            document.getElementById('customTimestamp').style.display = 
+                this.value === 'custom' ? 'block' : 'none';
+        });
+
+        document.getElementById('presets').addEventListener('change', function() {
+            const preset = this.value;
+            if (preset === 'welcome') {
+                document.getElementById('title').value = 'Welcome!';
+                document.getElementById('description').value = 'Welcome to the server!';
+                document.getElementById('color').value = '#00ff00';
+            } else if (preset === 'error') {
+                document.getElementById('title').value = 'Error';
+                document.getElementById('description').value = 'Something went wrong!';
+                document.getElementById('color').value = '#ff0000';
+            } else if (preset === 'success') {
+                document.getElementById('title').value = 'Success';
+                document.getElementById('description').value = 'Operation completed!';
+                document.getElementById('color').value = '#00ff00';
+            }
+            updatePreview();
+        });
+
+        updatePreview();
+    </script>
+</body>
+</html>
